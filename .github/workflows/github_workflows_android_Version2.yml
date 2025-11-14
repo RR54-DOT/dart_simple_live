@@ -1,3 +1,4 @@
+# ref: bce2a1ee98d066419781589eb5dc9e9b1d542c30
 name: Build APK
 
 on:
@@ -27,15 +28,37 @@ jobs:
         with:
           flutter-version: '3.22.0'
           channel: stable
-        
+
+      - name: Find Flutter project directory
+        id: find_project
+        run: |
+          echo "Searching for pubspec.yaml..."
+          P=$(find . -maxdepth 4 -type f -name pubspec.yaml -print -quit || true)
+          if [ -z "$P" ]; then
+            echo "::error::No pubspec.yaml found in repository (search depth 4)."
+            exit 1
+          fi
+          DIR=$(dirname "$P")
+          echo "Found pubspec.yaml at: $P"
+          echo "project_dir=$DIR" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Debug workspace (output project dir)
+        run: |
+          echo "Project dir: ${{ steps.find_project.outputs.project_dir }}"
+          ls -la "${{ steps.find_project.outputs.project_dir }}"
+        shell: bash
+
       - name: Install dependencies
+        working-directory: ${{ steps.find_project.outputs.project_dir }}
         run: flutter pub get
 
       - name: Build APK
+        working-directory: ${{ steps.find_project.outputs.project_dir }}
         run: flutter build apk --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-release.apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: ${{ steps.find_project.outputs.project_dir }}/build/app/outputs/flutter-apk/app-release.apk
